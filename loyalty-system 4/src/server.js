@@ -187,6 +187,35 @@ app.get('/logo.png', (req, res) => {
   res.send(Buffer.from(b64, 'base64'));
 });
 
+// --- Admin: enviar los 3 mails de prueba a una dirección (protegido) ---
+app.get('/admin/test-mail', async (req, res) => {
+  if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
+    return res.status(401).json({ error: 'no autorizado' });
+  }
+  const to = req.query.to;
+  if (!to) return res.status(400).json({ error: 'falta ?to=email' });
+  const M = require('./notify/messages');
+  const { enviarEmail } = require('./notify/email');
+  const nombreTrim = L.nombreTrimestre(L.claveTrimestre(new Date()));
+  const nom = 'Cliente de Prueba';
+  const out = {};
+  try {
+    const m1 = M.pedidoConfirmado({ name: nom, unitsAfter: 95, added: 12,
+      nivel: { nombre: 'Bronce', premio: 20 }, progreso: { faltan: 55, objetivo: 'Plata' } });
+    out.pedido = await enviarEmail(to, '[PRUEBA] ' + m1.titulo, m1.cuerpo);
+    const m2 = M.subioNivel({ name: nom, nivel: { nombre: 'Plata', premio: 40 },
+      progreso: { faltan: 105, objetivo: 'Oro' } });
+    out.nivel = await enviarEmail(to, '[PRUEBA] ' + m2.titulo, m2.cuerpo);
+    const m3 = M.cierreTrimestre({ name: nom, units: 210, gift: 40,
+      nivel: { nombre: 'Plata', premio: 40 }, trimestre: nombreTrim });
+    out.cierre = await enviarEmail(to, '[PRUEBA] ' + m3.titulo, m3.cuerpo);
+    res.json({ ok: true, to, enviados: ['pedido', 'nivel', 'cierre'] });
+  } catch (e) {
+    console.error('test-mail error:', e.message);
+    res.status(500).json({ error: e.message, parcial: out });
+  }
+});
+
 app.get('/salud', (req, res) => res.json({ ok: true, trimestre: L.claveTrimestre(new Date()) }));
 
 // --- Panel ---
