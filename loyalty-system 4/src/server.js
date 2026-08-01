@@ -27,9 +27,29 @@ app.post('/webhook/woocommerce',
     if (!tokenOk && !verificarFirma(raw, firma, cfg.wcWebhookSecret)) {
       return res.status(401).send('firma inválida');
     }
-    let order;
-    try { order = JSON.parse(raw); } catch { return res.status(400).send('json inválido'); }
-    if (!order || !order.id || !order.line_items) return res.status(200).send('sin-pedido');
+    // Parseo robusto: algunos proxies/plugins alteran el cuerpo (rompen el JSON crudo).
+    let order = null;
+    try { order = JSON.parse(raw); }
+    catch {
+      // Intento 1: cuerpo tipo formulario (payload=<json>) o urlencoded.
+      try {
+        let s = raw;
+        const m = raw.match(/(?:^|&)payload=([^&]*)/);
+        if (m) s = decodeURIComponent(m[1].replace(/\+/g, ' '));
+        else if (/%7B/i.test(raw)) s = decodeURIComponent(raw.replace(/\+/g, ' '));
+        order = JSON.parse(s);
+      } catch {}
+    }
+    if (!order) {
+      // Intento 2: extraer el objeto JSON entre la primera { y la última }.
+      const i = raw.indexOf('{'), j = raw.lastIndexOf('}');
+      if (i >= 0 && j > i) { try { order = JSON.parse(raw.slice(i, j + 1)); } catch {} }
+    }
+    if (!order) {
+      console.error('WH json inválido len=' + raw.length + ' ct=' + (req.get('content-type') || '') + ' ini=' + JSON.stringify(raw.slice(0, 200)));
+      return res.status(400).send('json inválido');
+    }
+    if (!order.id || !order.line_items) return res.status(200).send('sin-pedido');
 
     // Respondemos rápido (WooCommerce espera 2xx) y procesamos.
     res.status(200).send('recibido');
