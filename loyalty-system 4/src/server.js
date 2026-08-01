@@ -24,6 +24,9 @@ function costoUnidadActual() {
   const v = Number(getSetting('costoUnidad', ''));
   return Number.isFinite(v) && v > 0 ? v : cfg.costoUnidad;
 }
+function programStartActual() {
+  return getSetting('programStart', '') || cfg.programStart;
+}
 
 // --- Webhook de WooCommerce (necesita el cuerpo CRUDO para validar la firma) ---
 app.post('/webhook/woocommerce',
@@ -104,6 +107,7 @@ app.get('/api/estado', (req, res) => {
     quarter, nombreTrimestre: L.nombreTrimestre(quarter),
     niveles: cfg.niveles, moneda: cfg.moneda, costoUnidad: costoUnidadActual(),
     comercio: cfg.comercio, generado: new Date().toISOString(),
+    programStart: programStartActual(),
     clientes: filas,
   });
 });
@@ -126,15 +130,28 @@ app.post('/admin/cerrar-trimestre', express.json(), async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- Admin: guardar el costo por unidad (editable desde el panel, protegido) ---
+// --- Admin: guardar configuración (costo/fecha de inicio, editable desde el panel) ---
 app.post('/admin/config', express.json(), (req, res) => {
   if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
     return res.status(401).json({ error: 'no autorizado' });
   }
-  const c = Number(req.body && req.body.costoUnidad);
-  if (!Number.isFinite(c) || c < 0) return res.status(400).json({ error: 'costo inválido' });
-  setSetting('costoUnidad', c);
-  res.json({ ok: true, costoUnidad: c });
+  const body = req.body || {};
+  const out = {};
+  if (body.costoUnidad !== undefined && body.costoUnidad !== '') {
+    const c = Number(body.costoUnidad);
+    if (!Number.isFinite(c) || c < 0) return res.status(400).json({ error: 'costo inválido' });
+    setSetting('costoUnidad', c);
+    out.costoUnidad = c;
+  }
+  if (body.programStart !== undefined && body.programStart !== '') {
+    const d = String(body.programStart).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d).getTime())) {
+      return res.status(400).json({ error: 'fecha inválida (usá AAAA-MM-DD)' });
+    }
+    setSetting('programStart', d);
+    out.programStart = d;
+  }
+  res.json({ ok: true, ...out });
 });
 
 app.get('/salud', (req, res) => res.json({ ok: true, trimestre: L.claveTrimestre(new Date()) }));
