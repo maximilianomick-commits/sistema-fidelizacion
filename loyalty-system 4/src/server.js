@@ -10,6 +10,21 @@ const { cerrarTrimestre } = require('./jobs/closeQuarter');
 
 const app = express();
 
+// --- Ajustes editables desde el panel (costo por unidad, etc.) ---
+// Se guardan en la base (persisten en el volumen) para poder cambiarlos sin redeploy.
+dbmod.db.exec('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)');
+function getSetting(key, def) {
+  const row = dbmod.db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row ? row.value : def;
+}
+function setSetting(key, value) {
+  dbmod.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, String(value));
+}
+function costoUnidadActual() {
+  const v = Number(getSetting('costoUnidad', ''));
+  return Number.isFinite(v) && v > 0 ? v : cfg.costoUnidad;
+}
+
 // --- Webhook de WooCommerce (necesita el cuerpo CRUDO para validar la firma) ---
 app.post('/webhook/woocommerce',
   express.raw({ type: '*/*', limit: '2mb' }),
@@ -87,7 +102,7 @@ app.get('/api/estado', (req, res) => {
   });
   res.json({
     quarter, nombreTrimestre: L.nombreTrimestre(quarter),
-    niveles: cfg.niveles, moneda: cfg.moneda, costoUnidad: cfg.costoUnidad,
+    niveles: cfg.niveles, moneda: cfg.moneda, costoUnidad: costoUnidadActual(),
     comercio: cfg.comercio, generado: new Date().toISOString(),
     clientes: filas,
   });
@@ -109,6 +124,17 @@ app.post('/admin/cerrar-trimestre', express.json(), async (req, res) => {
     const r = await cerrarTrimestre(quarter);
     res.json({ ok: true, ...r });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Admin: guardar el costo por unidad (editable desde el panel, protegido) ---
+app.post('/admin/config', express.json(), (req, res) => {
+  if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
+    return res.status(401).json({ error: 'no autorizado' });
+  }
+  const c = Number(req.body && req.body.costoUnidad);
+  if (!Number.isFinite(c) || c < 0) return res.status(400).json({ error: 'costo inválido' });
+  setSetting('costoUnidad', c);
+  res.json({ ok: true, costoUnidad: c });
 });
 
 app.get('/salud', (req, res) => res.json({ ok: true, trimestre: L.claveTrimestre(new Date()) }));
