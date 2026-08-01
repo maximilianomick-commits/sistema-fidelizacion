@@ -1,0 +1,42 @@
+# Render Blueprint — importá el repo en Render y se crea el servicio solo.
+# (El disco persistente para la base de datos requiere un plan pago en Render.)
+services:
+  - type: web
+    name: fidelizacion-mayorista
+    runtime: node
+    plan: starter          # "starter" o superior para tener disco persistente
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /salud
+    autoDeploy: true
+    disk:
+      name: datos
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /opt/render/project/src/data/fidelizacion.db
+      - key: NOMBRE_COMERCIO
+        sync: false
+      - key: PROGRAM_START
+        sync: false
+      - key: WC_WEBHOOK_SECRET
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: WHATSAPP_PROVIDER
+        value: meta
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_ID
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false

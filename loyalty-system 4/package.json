@@ -1,0 +1,20 @@
+{
+  "name": "fidelizacion-mayorista",
+  "version": "1.0.0",
+  "description": "Sistema de fidelización mayorista en tiempo real para WooCommerce (niveles por unidades, premios en especie, avisos por WhatsApp y email).",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "cerrar-trimestre": "node src/jobs/closeQuarter.js",
+    "simular": "node scripts/simular.js",
+    "test": "node test/engine.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.14"
+  }
+}

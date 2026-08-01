@@ -1,0 +1,98 @@
+'use strict';
+const path = require('path');
+const express = require('express');
+const cfg = require('./config');
+const L = require('./loyalty');
+const dbmod = require('./db');
+const { verificarFirma } = require('./woocommerce');
+const { procesarPedido } = require('./service');
+const { cerrarTrimestre } = require('./jobs/closeQuarter');
+
+const app = express();
+
+// --- Webhook de WooCommerce (necesita el cuerpo CRUDO para validar la firma) ---
+app.post('/webhook/woocommerce',
+  express.raw({ type: '*/*', limit: '2mb' }),
+  async (req, res) => {
+    const raw = req.body instanceof Buffer ? req.body.toString('utf8') : '';
+    const firma = req.get('x-wc-webhook-signature');
+
+    // WooCommerce manda un "ping" al crear el webhook: cuerpo vacío o mínimo.
+    if (!raw || raw.length < 5) return res.status(200).send('ok');
+
+    if (!verificarFirma(raw, firma, cfg.wcWebhookSecret)) {
+      return res.status(401).send('firma inválida');
+    }
+    let order;
+    try { order = JSON.parse(raw); } catch { return res.status(400).send('json inválido'); }
+    if (!order || !order.id || !order.line_items) return res.status(200).send('sin-pedido');
+
+    // Respondemos rápido (WooCommerce espera 2xx) y procesamos.
+    res.status(200).send('recibido');
+    try {
+      const r = await procesarPedido(order);
+      console.log('Pedido procesado:', JSON.stringify(r));
+    } catch (e) {
+      console.error('Error procesando pedido:', e.message);
+    }
+  });
+
+// --- API para el panel ---
+app.get('/api/estado', (req, res) => {
+  const quarter = req.query.quarter || L.claveTrimestre(new Date());
+  const filas = dbmod.listQuarter(quarter).map(c => {
+    const idx = L.indiceNivel(c.units);
+    const nivel = idx >= 0 ? cfg.niveles[idx] : null;
+    const prog = L.progreso(c.units);
+    return {
+      cliente: c.name || c.customer_key,
+      email: c.email, telefono: c.phone,
+      unidades: c.units,
+      nivel: nivel ? nivel.nombre : null,
+      premio: nivel ? nivel.premio : 0,
+      faltan: prog ? prog.faltan : 0,
+      objetivo: prog ? prog.objetivo : null,
+      cerrado: !!c.closed,
+    };
+  });
+  res.json({
+    quarter, nombreTrimestre: L.nombreTrimestre(quarter),
+    niveles: cfg.niveles, moneda: cfg.moneda, costoUnidad: cfg.costoUnidad,
+    comercio: cfg.comercio, generado: new Date().toISOString(),
+    clientes: filas,
+  });
+});
+
+// Lista de trimestres con datos (para el selector del panel).
+app.get('/api/trimestres', (req, res) => {
+  const rows = dbmod.db.prepare('SELECT DISTINCT quarter FROM customers ORDER BY quarter DESC').all();
+  res.json(rows.map(r => r.quarter));
+});
+
+// --- Admin: cerrar trimestre manualmente (protegido por token) ---
+app.post('/admin/cerrar-trimestre', express.json(), async (req, res) => {
+  if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
+    return res.status(401).json({ error: 'no autorizado' });
+  }
+  const quarter = (req.body && req.body.quarter) || req.query.quarter;
+  try {
+    const r = await cerrarTrimestre(quarter);
+    res.json({ ok: true, ...r });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/salud', (req, res) => res.json({ ok: true, trimestre: L.claveTrimestre(new Date()) }));
+
+// --- Panel ---
+app.use('/', express.static(path.join(__dirname, '..', 'public')));
+
+if (require.main === module) {
+  app.listen(cfg.puerto, () => {
+    console.log(`\n✅ Sistema de fidelización escuchando en http://localhost:${cfg.puerto}`);
+    console.log(`   Panel:   http://localhost:${cfg.puerto}/`);
+    console.log(`   Webhook: POST /webhook/woocommerce`);
+    console.log(`   Trimestre actual: ${L.claveTrimestre(new Date())} · Inicio programa: ${cfg.programStart}\n`);
+  });
+}
+
+module.exports = app;

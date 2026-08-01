@@ -1,0 +1,17 @@
+========================================================================
+  CLAVES SECRETAS GENERADAS PARA TU SISTEMA  —  guardá este archivo
+========================================================================
+
+Estas dos claves ya están listas para usar. La primera va TAMBIÉN en el
+webhook de WooCommerce (deben coincidir exactamente).
+
+  WC_WEBHOOK_SECRET=b5da8516fcf794f7ca560fe834fcc9a5be03bb525a152534
+  ADMIN_TOKEN=30ee58eb2c0ff3b35295a8611ab2fe9958a8488f900a0a1d
+
+Dónde se usan:
+  - WC_WEBHOOK_SECRET: en las variables del sistema (deploy) Y en el campo
+    "Secreto" de los dos webhooks que crees en WooCommerce.
+  - ADMIN_TOKEN: para cerrar el trimestre desde el endpoint protegido.
+
+No las compartas ni las subas a un repositorio público.
+Si preferís otras, se regeneran con:  node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
