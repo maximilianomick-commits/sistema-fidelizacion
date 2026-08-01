@@ -27,17 +27,23 @@ app.post('/webhook/woocommerce',
     if (!tokenOk && !verificarFirma(raw, firma, cfg.wcWebhookSecret)) {
       return res.status(401).send('firma inválida');
     }
-    // Parseo robusto: algunos proxies/plugins alteran el cuerpo (rompen el JSON crudo).
+    // Parseo robusto: este WooCommerce entrega el cuerpo como form-urlencoded,
+    // no como JSON crudo. Cubrimos todos los formatos posibles.
     let order = null;
-    try { order = JSON.parse(raw); }
-    catch {
-      // Intento 1: cuerpo tipo formulario (payload=<json>) o urlencoded.
+    // Intento 0: JSON crudo (por si en algún caso llega application/json).
+    try { order = JSON.parse(raw); } catch {}
+    if (!order) {
+      // Intento 1: cuerpo tipo formulario (form-urlencoded).
       try {
-        let s = raw;
-        const m = raw.match(/(?:^|&)payload=([^&]*)/);
-        if (m) s = decodeURIComponent(m[1].replace(/\+/g, ' '));
-        else if (/%7B/i.test(raw)) s = decodeURIComponent(raw.replace(/\+/g, ' '));
-        order = JSON.parse(s);
+        const params = new URLSearchParams(raw);
+        if (params.has('payload')) {
+          order = JSON.parse(params.get('payload'));
+        } else if (params.has('webhook_id') && !raw.includes('{')) {
+          // Es solo el "ping" de WooCommerce (webhook_id=N): conexión OK, sin pedido.
+          return res.status(200).send('ping-ok');
+        } else if (/%7B/i.test(raw)) {
+          order = JSON.parse(decodeURIComponent(raw.replace(/\+/g, ' ')));
+        }
       } catch {}
     }
     if (!order) {
