@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Fidelización — En vivo</title>
+<style>
+  :root{
+    --page:#eef1f4;--surface:#fff;--surface-2:#f7f9fb;--text:#0b0b0b;--text2:#52514e;--muted:#898781;
+    --grid:#e6e8ec;--border:rgba(11,11,11,0.10);--navy:#1F3A5F;--navy-2:#2E5C8A;--gold:#B8860B;
+    --bar:#2a78d6;--bar-track:#e6eef8;--good:#0ca30c;
+    --br-bronce:#A9713B;--br-plata:#7C8790;--br-oro:#C79A00;--br-base:#9aa0a6;
+    --shadow:0 1px 2px rgba(11,11,11,.06),0 4px 16px rgba(11,11,11,.05);color-scheme:light;
+  }
+  :root[data-theme="dark"]{
+    --page:#0d0d0d;--surface:#1a1a19;--surface-2:#222220;--text:#fff;--text2:#c3c2b7;--muted:#898781;
+    --grid:#2c2c2a;--border:rgba(255,255,255,0.10);--navy:#12233a;--navy-2:#2E5C8A;--gold:#d6a52a;
+    --bar:#3987e5;--bar-track:#20344a;--good:#0ca30c;
+    --br-bronce:#c08a52;--br-plata:#9aa4ad;--br-oro:#d8ac1f;--br-base:#8a9096;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.35);color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 60px}
+  header.top{background:var(--navy);color:#fff;padding:18px 0;box-shadow:var(--shadow)}
+  header.top .wrap{padding-bottom:0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  header.top h1{font-size:19px;margin:0;font-weight:700}
+  header.top .sub{font-size:12.5px;color:#c9d6e3;margin-top:2px}
+  .badge-gold{display:inline-block;background:var(--gold);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:8px}
+  .top-actions{display:flex;gap:8px;align-items:center}
+  button,.btn,select{font-family:inherit;font-size:13px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:8px 12px;border-radius:9px;cursor:pointer;font-weight:600}
+  .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
+  .section{margin-top:22px}
+  .section h2{font-size:15px;margin:0 0 12px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .section h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+  .databar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 16px;margin-top:18px}
+  label.fld{font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .live{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text2)}
+  .live .pulse{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 0 rgba(12,163,12,.5);animation:p 2s infinite}
+  @keyframes p{0%{box-shadow:0 0 0 0 rgba(12,163,12,.5)}70%{box-shadow:0 0 0 8px rgba(12,163,12,0)}100%{box-shadow:0 0 0 0 rgba(12,163,12,0)}}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+  .kpi{padding:16px 18px}
+  .kpi .k-label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .kpi .k-val{font-size:27px;font-weight:700;margin-top:6px;letter-spacing:-.5px}
+  .kpi .k-sub{font-size:12px;color:var(--text2);margin-top:2px}
+  .kpi.accent .k-val{color:var(--navy-2)}.kpi.gold .k-val{color:var(--gold)}
+  .cols{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-top:22px;align-items:start}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+  thead th.num,tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--grid)}
+  tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--surface-2)}
+  .tier{display:inline-flex;align-items:center;font-weight:700;font-size:12px;padding:3px 9px;border-radius:20px;color:#fff;white-space:nowrap}
+  .t-bronce{background:var(--br-bronce)}.t-plata{background:var(--br-plata)}.t-oro{background:var(--br-oro)}.t-base{background:var(--br-base)}
+  .gift{font-weight:700;color:var(--good);font-variant-numeric:tabular-nums}
+  .tonext{font-size:12px;color:var(--text2)}.tonext.max{color:var(--gold);font-weight:700}
+  .rk{padding:8px 4px}
+  .rk-row{display:grid;grid-template-columns:130px 1fr 58px;align-items:center;gap:10px;padding:6px 8px;border-radius:8px}
+  .rk-row:hover{background:var(--surface-2)}
+  .rk-name{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rk-track{background:var(--bar-track);border-radius:5px;height:16px;overflow:hidden}
+  .rk-fill{height:100%;background:var(--bar);border-radius:5px 4px 4px 5px;min-width:3px;transition:width .5s}
+  .rk-val{font-size:12.5px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--text2)}
+  .dist{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:6px 4px}
+  .dist .d{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--grid);border-radius:10px}
+  .dist .d .c{font-size:19px;font-weight:700}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div>
+      <h1>Panel de Fidelización <span class="badge-gold" id="live-badge">EN VIVO</span></h1>
+      <div class="sub" id="sub">Conectando…</div>
+    </div>
+    <div class="top-actions">
+      <select id="qsel" title="Trimestre"></select>
+      <button class="btn-ghost" id="themeBtn">◐ Tema</button>
+      <button class="btn-ghost" id="refreshBtn">↻ Actualizar</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card databar">
+    <div class="live"><span class="pulse"></span> <span id="liveTxt">Actualizado recién</span></div>
+    <div style="flex:1"></div>
+    <div style="font-size:12.5px;color:var(--text2)" id="periodo"></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="cols">
+    <div class="card section" style="padding:14px 4px 6px">
+      <h2 style="padding:0 14px"><span class="dot"></span>Clientes y beneficios</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Cliente</th><th class="num">Unidades</th><th>Nivel</th>
+            <th class="num">Premio (u.)</th><th>Para subir</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="card section" style="padding:14px 16px;margin-top:0">
+        <h2><span class="dot"></span>Top compradores</h2>
+        <div class="rk" id="ranking"></div>
+      </div>
+      <div class="card section" style="padding:14px 16px">
+        <h2><span class="dot"></span>Distribución por nivel</h2>
+        <div class="dist" id="dist"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer id="foot">Los pedidos entran en tiempo real desde WooCommerce · las unidades de regalo se entregan automáticamente al cierre del trimestre.</footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>Number(n||0).toLocaleString('es-AR');
+let DATA=null, currentQ=null, lastFetch=0;
+
+function tierCls(n){return n==='Bronce'?'t-bronce':n==='Plata'?'t-plata':n==='Oro'?'t-oro':'t-base';}
+
+async function cargar(q){
+  try{
+    const url='/api/estado'+(q?('?quarter='+encodeURIComponent(q)):'');
+    const r=await fetch(url); DATA=await r.json(); currentQ=DATA.quarter; lastFetch=Date.now();
+    render(); await cargarTrimestres();
+    $('#sub').textContent=DATA.comercio+' · '+DATA.nombreTrimestre;
+    $('#periodo').textContent='Trimestre '+DATA.quarter;
+  }catch(e){ $('#liveTxt').textContent='Sin conexión con el servidor'; }
+}
+async function cargarTrimestres(){
+  try{
+    const r=await fetch('/api/trimestres'); let qs=await r.json();
+    if(!qs.includes(currentQ)) qs=[currentQ,...qs];
+    const sel=$('#qsel');
+    sel.innerHTML=qs.map(q=>`<option value="${q}"${q===currentQ?' selected':''}>${q}</option>`).join('');
+  }catch(e){}
+}
+function render(){
+  const cl=DATA.clientes||[];
+  const totU=cl.reduce((s,c)=>s+c.unidades,0);
+  const conBen=cl.filter(c=>c.nivel).length;
+  const totG=cl.reduce((s,c)=>s+(c.nivel?c.premio:0),0);
+  const costo=totG*(DATA.costoUnidad||0);
+  $('#kpis').innerHTML=[
+    kpi('Clientes activos',fmt(cl.length),conBen+' con beneficio',''),
+    kpi('Unidades vendidas',fmt(totU),'en el trimestre','accent'),
+    kpi('Unidades de regalo',fmt(totG),'a entregar al cierre','gold'),
+    kpi('Costo del programa',(DATA.moneda||'$')+' '+fmt(Math.round(costo)),(totU?(totG/totU*100).toFixed(1):'0')+'% sobre lo vendido','')
+  ].join('');
+
+  const rows=[...cl].sort((a,b)=>b.unidades-a.unidades);
+  $('#tbody').innerHTML=rows.length?rows.map(c=>{
+    const badge=c.nivel?`<span class="tier ${tierCls(c.nivel)}">${c.nivel}</span>`:`<span class="tier t-base">Sin nivel</span>`;
+    const next=c.objetivo?('Faltan '+fmt(c.faltan)+' para '+c.objetivo):'<span class="tonext max">Nivel máximo</span>';
+    return `<tr><td>${esc(c.cliente)}</td><td class="num">${fmt(c.unidades)}</td><td>${badge}</td>
+      <td class="num gift">${c.nivel?('+'+fmt(c.premio)):'—'}</td><td class="tonext">${next}</td></tr>`;
+  }).join(''):'<tr><td colspan="5" class="empty">Todavía no hay pedidos en este trimestre.</td></tr>';
+
+  const top=[...cl].sort((a,b)=>b.unidades-a.unidades).slice(0,10);
+  const max=top.length?top[0].unidades:1;
+  $('#ranking').innerHTML=top.length?top.map(c=>
+    `<div class="rk-row"><div class="rk-name" title="${esc(c.cliente)}">${esc(c.cliente)}</div>
+     <div class="rk-track"><div class="rk-fill" style="width:${max?c.unidades/max*100:0}%"></div></div>
+     <div class="rk-val">${fmt(c.unidades)}</div></div>`).join(''):'<div class="empty">Sin datos.</div>';
+
+  const niveles=DATA.niveles||[];
+  $('#dist').innerHTML=niveles.map(n=>{
+    const c=cl.filter(x=>x.nivel===n.nombre).length;
+    return `<div class="d"><span class="tier ${tierCls(n.nombre)}">${n.nombre}</span><span class="c">${c}</span></div>`;
+  }).join('')+`<div class="d"><span class="tier t-base">Sin nivel</span><span class="c">${cl.filter(x=>!x.nivel).length}</span></div>`;
+}
+function kpi(l,v,s,c){return `<div class="card kpi ${c}"><div class="k-label">${l}</div><div class="k-val">${v}</div><div class="k-sub">${s}</div></div>`;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+$('#themeBtn').onclick=()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark';};
+$('#refreshBtn').onclick=()=>cargar(currentQ);
+$('#qsel').onchange=e=>cargar(e.target.value);
+
+// Reloj "actualizado hace Xs"
+setInterval(()=>{ if(lastFetch){const s=Math.round((Date.now()-lastFetch)/1000);
+  $('#liveTxt').textContent = s<5?'Actualizado recién':('Actualizado hace '+s+' s');} },1000);
+// Auto-refresh cada 15 s
+setInterval(()=>cargar(currentQ),15000);
+cargar();
+</script>
+</body>
+</html>
