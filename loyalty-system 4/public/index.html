@@ -68,6 +68,11 @@
   .empty{padding:40px;text-align:center;color:var(--muted)}
   footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center}
   @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}
+  .cfg-in{font-family:inherit;font-size:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:9px 12px;border-radius:9px}
+  .cfg-ta{font-family:inherit;font-size:13px;line-height:1.5;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:10px 12px;border-radius:9px;width:100%;max-width:640px;resize:vertical;display:block}
+  .mailrow{margin:0 0 16px}
+  .mailrow b{font-size:13px;color:var(--navy-2)}
+  code{background:var(--surface-2);padding:1px 5px;border-radius:5px;font-size:12px}
 </style>
 </head>
 <body>
@@ -118,6 +123,37 @@
       </div>
       <button id="cfgSave" style="background:var(--navy);color:#fff;border-color:var(--navy)">Guardar</button>
       <span id="cfgMsg" style="font-size:12.5px;font-weight:600"></span>
+    </div>
+
+    <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:18px">
+      <h2 style="margin:0 0 6px"><span class="dot"></span>Personalización de los emails</h2>
+      <p style="font-size:12.5px;color:var(--text2);margin:0 0 16px;max-width:740px">
+        Cambiá el texto, el asunto y el diseño de los mails que reciben tus clientes. En los textos podés usar comodines que el sistema reemplaza solo por los datos de cada cliente:
+        <code>{nombre}</code> <code>{nivel}</code> <code>{premio}</code> <code>{unidades}</code> <code>{faltan}</code> <code>{objetivo}</code> <code>{comercio}</code> <code>{trimestre}</code>.
+        Poné una palabra entre *asteriscos* para que salga en <b>negrita</b>. Si dejás un texto vacío, se usa el mensaje por defecto.
+      </p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+        <div><label class="fld">Nombre del remitente</label><input id="mRem" type="text" class="cfg-in" placeholder="Cultivamente Mayorista" style="width:220px"></div>
+        <div><label class="fld">Color del encabezado</label><input id="mColor" type="color" value="#1F3A5F" style="height:40px;width:56px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--surface);cursor:pointer"></div>
+        <div><label class="fld">Logo (PNG)</label><input id="mLogo" type="file" accept="image/png" style="font-size:12.5px;max-width:190px"></div>
+        <img id="logoPrev" alt="" style="display:none;max-height:42px;max-width:130px;border:1px solid var(--border);border-radius:8px;padding:4px;background:#fff">
+        <button id="mLogoDel" style="font-size:12px;padding:7px 11px">Quitar logo</button>
+      </div>
+      <div style="margin-bottom:18px"><label class="fld">Firma / pie del email</label><input id="mFirma" type="text" class="cfg-in" placeholder="Cultivamente Mayorista — Programa de fidelización" style="width:100%;max-width:520px"></div>
+
+      <div class="mailrow"><b>Mail 1 · Compra registrada</b>
+        <input id="sPedido" type="text" class="cfg-in" placeholder="Asunto" style="width:100%;max-width:520px;margin:6px 0">
+        <textarea id="tPedido" class="cfg-ta" rows="4" placeholder="Texto del mail (vacío = mensaje por defecto)"></textarea>
+      </div>
+      <div class="mailrow"><b>Mail 2 · Subió de nivel</b>
+        <input id="sNivel" type="text" class="cfg-in" placeholder="Asunto" style="width:100%;max-width:520px;margin:6px 0">
+        <textarea id="tNivel" class="cfg-ta" rows="4" placeholder="Texto del mail (vacío = mensaje por defecto)"></textarea>
+      </div>
+      <div class="mailrow"><b>Mail 3 · Cierre de trimestre</b>
+        <input id="sCierre" type="text" class="cfg-in" placeholder="Asunto" style="width:100%;max-width:520px;margin:6px 0">
+        <textarea id="tCierre" class="cfg-ta" rows="4" placeholder="Texto del mail (vacío = mensaje por defecto)"></textarea>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Todo esto se guarda con el botón <b>Guardar</b> de arriba, usando tu clave de administrador.</p>
     </div>
   </div>
 
@@ -216,12 +252,32 @@ $('#themeBtn').onclick=()=>{const r=document.documentElement;r.dataset.theme=r.d
 $('#refreshBtn').onclick=()=>cargar(currentQ);
 $('#qsel').onchange=e=>cargar(e.target.value);
 
-$('#cfgBtn').onclick=()=>{
+let nuevoLogo=undefined; // undefined=sin cambio, ''=quitar, string=nuevo PNG en base64
+$('#cfgBtn').onclick=async()=>{
   const p=$('#cfgPanel');
   const show=p.style.display==='none';
   p.style.display=show?'block':'none';
-  if(show&&DATA){$('#cfgCosto').value=DATA.costoUnidad||0;$('#cfgFecha').value=(DATA.programStart||'').slice(0,10);}
+  if(!show)return;
+  if(DATA){$('#cfgCosto').value=DATA.costoUnidad||0;$('#cfgFecha').value=(DATA.programStart||'').slice(0,10);}
+  nuevoLogo=undefined;
+  try{
+    const m=await fetch('/api/mails').then(r=>r.json());
+    $('#mRem').value=m.mailRemitente||'';$('#mFirma').value=m.mailFirma||'';
+    if(m.mailColor)$('#mColor').value=m.mailColor;
+    $('#sPedido').value=m.subjPedido||'';$('#tPedido').value=m.textoPedido||'';
+    $('#sNivel').value=m.subjNivel||'';$('#tNivel').value=m.textoNivel||'';
+    $('#sCierre').value=m.subjCierre||'';$('#tCierre').value=m.textoCierre||'';
+    if(m.tieneLogo){$('#logoPrev').src='/logo.png?t='+Date.now();$('#logoPrev').style.display='inline-block';}
+    else{$('#logoPrev').style.display='none';}
+  }catch(e){}
 };
+$('#mLogo').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{nuevoLogo=String(rd.result).split(',')[1];$('#logoPrev').src=rd.result;$('#logoPrev').style.display='inline-block';};
+  rd.readAsDataURL(f);
+};
+$('#mLogoDel').onclick=()=>{nuevoLogo='';$('#logoPrev').style.display='none';$('#mLogo').value='';};
 $('#cfgSave').onclick=async()=>{
   const costoUnidad=Number($('#cfgCosto').value);
   const programStart=$('#cfgFecha').value;
@@ -230,9 +286,20 @@ $('#cfgSave').onclick=async()=>{
   if(!(costoUnidad>=0)){msg.style.color='#c0392b';msg.textContent='Ingresá un costo válido';return;}
   msg.style.color='var(--text2)';msg.textContent='Guardando…';
   try{
-    const r=await fetch('/admin/config',{method:'POST',headers:{'Content-Type':'application/json','x-admin-token':tok},body:JSON.stringify({costoUnidad,programStart})});
+    const body={costoUnidad,programStart,
+      mailRemitente:$('#mRem').value,mailFirma:$('#mFirma').value,mailColor:$('#mColor').value,
+      subjPedido:$('#sPedido').value,textoPedido:$('#tPedido').value,
+      subjNivel:$('#sNivel').value,textoNivel:$('#tNivel').value,
+      subjCierre:$('#sCierre').value,textoCierre:$('#tCierre').value};
+    const r=await fetch('/admin/config',{method:'POST',headers:{'Content-Type':'application/json','x-admin-token':tok},body:JSON.stringify(body)});
     const j=await r.json();
     if(!r.ok)throw new Error(j.error||('error '+r.status));
+    if(nuevoLogo!==undefined){
+      const rl=await fetch('/admin/logo',{method:'POST',headers:{'Content-Type':'application/json','x-admin-token':tok},body:JSON.stringify({logo:nuevoLogo})});
+      const jl=await rl.json();
+      if(!rl.ok)throw new Error(jl.error||'error al subir el logo');
+      nuevoLogo=undefined;
+    }
     msg.style.color='var(--good)';msg.textContent='✓ Guardado';
     await cargar(currentQ);
   }catch(e){msg.style.color='#c0392b';msg.textContent='✗ '+e.message;}
