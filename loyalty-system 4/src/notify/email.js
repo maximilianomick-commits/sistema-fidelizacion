@@ -33,16 +33,24 @@ function inline(s) { return escape(s).replace(/\*([^*]+)\*/g, '<strong>$1</stron
 
 function htmlDesdeTexto(titulo, texto) {
   const color = getSetting('mailColor') || '#1F3A5F';
+  const fondo = getSetting('mailFondo') || '#f4f6f8';
+  const font = getSetting('mailFont') || 'Arial,sans-serif';
+  const lh = Number(getSetting('mailLogoSize')) || 56;
   const firma = getSetting('mailFirma') || ((process.env.NOMBRE_COMERCIO || '') + ' - Programa de fidelizacion');
   const logo = getSetting('mailLogo')
-    ? '<div style="text-align:center;padding:20px 0 4px"><img src="' + PUBLIC_URL + '/logo.png" alt="" style="max-height:56px;max-width:220px"></div>'
+    ? '<div style="text-align:center;padding:20px 0 4px"><img src="' + PUBLIC_URL + '/logo.png" alt="" style="max-height:' + lh + 'px;max-width:80%"></div>'
+    : '';
+  const btnT = getSetting('mailBtnTexto'), btnU = getSetting('mailBtnUrl');
+  const boton = (btnT && btnU)
+    ? '<div style="text-align:center;padding:4px 22px 20px"><a href="' + escape(btnU).replace(/"/g, '&quot;') + '" style="display:inline-block;background:' + escape(color) + ';color:#fff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px">' + escape(btnT) + '</a></div>'
     : '';
   const cuerpo = texto.split('\n').map(l => '<p style="margin:0 0 10px">' + inline(l) + '</p>').join('');
-  return '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f4f6f8;padding:24px">'
+  return '<!DOCTYPE html><html><body style="font-family:' + font + ';background:' + escape(fondo) + ';padding:24px">'
     + '<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e3e7ec">'
     + logo
     + '<div style="background:' + escape(color) + ';color:#fff;padding:16px 22px;font-size:16px;font-weight:bold">' + escape(titulo) + '</div>'
     + '<div style="padding:22px;color:#333;font-size:14px;line-height:1.5">' + cuerpo + '</div>'
+    + boton
     + '<div style="padding:14px 22px;color:#8a98a8;font-size:12px;border-top:1px solid #eee">' + escape(firma) + '</div>'
     + '</div></body></html>';
 }
