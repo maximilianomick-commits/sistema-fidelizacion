@@ -6,6 +6,14 @@ const { parseOrder } = require('./woocommerce');
 const msgs = require('./notify/messages');
 const { avisar } = require('./notify');
 
+// Fecha de inicio del programa: editable desde el panel (tabla settings).
+function programStartActual() {
+  try {
+    const row = dbmod.db.prepare("SELECT value FROM settings WHERE key = 'programStart'").get();
+    return (row && row.value) ? row.value : cfg.programStart;
+  } catch { return cfg.programStart; }
+}
+
 /**
  * Procesa un pedido de WooCommerce de punta a punta:
  *  - lo parsea
@@ -18,7 +26,9 @@ async function procesarPedido(orderRaw) {
   const o = parseOrder(orderRaw);
 
   // Todos los clientes empiezan desde cero: ignoramos lo anterior al inicio.
-  if (new Date(o.fecha) < new Date(cfg.programStart)) {
+  // La fecha de inicio se puede editar desde el panel (tabla settings); si no,
+  // se usa la de la configuración (PROGRAM_START).
+  if (new Date(o.fecha) < new Date(programStartActual())) {
     return { ignorado: 'anterior-al-inicio', orderId: o.orderId };
   }
 
