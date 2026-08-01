@@ -20,7 +20,11 @@ app.post('/webhook/woocommerce',
     // WooCommerce manda un "ping" al crear el webhook: cuerpo vacío o mínimo.
     if (!raw || raw.length < 5) return res.status(200).send('ok');
 
-    if (!verificarFirma(raw, firma, cfg.wcWebhookSecret)) {
+    // Autenticación: acepta si la firma HMAC es válida, o si la URL trae
+    // ?token=<WC_WEBHOOK_SECRET> (útil cuando un proxy/plugin altera la firma).
+    const token = req.query.token;
+    const tokenOk = cfg.wcWebhookSecret && token === cfg.wcWebhookSecret;
+    if (!tokenOk && !verificarFirma(raw, firma, cfg.wcWebhookSecret)) {
       return res.status(401).send('firma inválida');
     }
     let order;
