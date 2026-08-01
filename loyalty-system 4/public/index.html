@@ -153,7 +153,19 @@
         <input id="sCierre" type="text" class="cfg-in" placeholder="Asunto" style="width:100%;max-width:520px;margin:6px 0">
         <textarea id="tCierre" class="cfg-ta" rows="4" placeholder="Texto del mail (vacío = mensaje por defecto)"></textarea>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Todo esto se guarda con el botón <b>Guardar</b> de arriba, usando tu clave de administrador.</p>
+      <div style="margin-top:18px;border-top:1px dashed var(--border);padding-top:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <b style="font-size:13px;color:var(--navy-2)">Vista previa en vivo</b>
+          <select id="prevSel" class="cfg-in" style="padding:6px 10px;width:auto">
+            <option value="pedido">Mail 1 · Compra registrada</option>
+            <option value="nivel">Mail 2 · Subió de nivel</option>
+            <option value="cierre">Mail 3 · Cierre de trimestre</option>
+          </select>
+          <span style="font-size:12px;color:var(--muted)">Se actualiza solo mientras editás.</span>
+        </div>
+        <div id="mailPrev" style="border:1px solid var(--border);border-radius:12px;background:#f4f6f8;padding:16px;max-height:560px;overflow:auto"></div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:12px 0 0">Todo esto se guarda con el botón <b>Guardar</b> de arriba, usando tu clave de administrador.</p>
     </div>
   </div>
 
@@ -253,6 +265,41 @@ $('#refreshBtn').onclick=()=>cargar(currentQ);
 $('#qsel').onchange=e=>cargar(e.target.value);
 
 let nuevoLogo=undefined; // undefined=sin cambio, ''=quitar, string=nuevo PNG en base64
+function escapeP(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function inlineP(s){return escapeP(s).replace(/\*([^*]+)\*/g,'<strong>$1</strong>');}
+function renderMailPreview(){
+  const box=$('#mailPrev'); if(!box)return;
+  const which=$('#prevSel')?$('#prevSel').value:'pedido';
+  const COM=(DATA&&DATA.comercio)||'Cultivamente Mayorista';
+  const TRIM=(DATA&&DATA.nombreTrimestre)||'3.º trimestre 2026';
+  const M={
+    pedido:{s:$('#sPedido').value,t:$('#tPedido').value,ds:'Compra registrada',
+      dt:'Hola Juan! Registramos tu compra en '+COM+'.\nSumaste 12 unidades este trimestre (total: 95).\nTu nivel actual es *Bronce* (premio de 20 unidades al cierre del trimestre).\nTe faltan 55 unidades para llegar a *Plata*.',
+      vals:{nombre:'Juan',comercio:COM,sumadas:'12',unidades:'95',nivel:'Bronce',premio:'20',faltan:'55',objetivo:'Plata'}},
+    nivel:{s:$('#sNivel').value,t:$('#tNivel').value,ds:'¡Nivel Plata alcanzado!',
+      dt:'Hola Juan! ¡Subiste al nivel *Plata* en '+COM+'!\nAl cierre del trimestre te corresponden 40 unidades de regalo.\nSi sumás 105 unidades más, llegás a *Oro*.',
+      vals:{nombre:'Juan',comercio:COM,nivel:'Plata',premio:'40',faltan:'105',objetivo:'Oro'}},
+    cierre:{s:$('#sCierre').value,t:$('#tCierre').value,ds:'Cierre de trimestre — '+TRIM,
+      dt:'Hola Juan! Cerramos el '+TRIM+' en '+COM+'.\nCompraste 210 unidades.\nAlcanzaste el nivel *Plata*: te regalamos 40 unidades, que se entregan automáticamente.\nGracias por tu confianza.',
+      vals:{nombre:'Juan',comercio:COM,unidades:'210',premio:'40',regalo:'40',nivel:'Plata',trimestre:TRIM}}
+  }[which];
+  const subj=M.s?M.s.replace(/\{(\w+)\}/g,(m,k)=>k in M.vals?M.vals[k]:m):M.ds;
+  const cuerpo=M.t?M.t.replace(/\{(\w+)\}/g,(m,k)=>k in M.vals?M.vals[k]:m):M.dt;
+  const color=$('#mColor').value||'#1F3A5F';
+  const firma=$('#mFirma').value||(COM+' — Programa de fidelización');
+  const logoShown=$('#logoPrev')&&$('#logoPrev').style.display!=='none';
+  const logo=logoShown?'<div style="text-align:center;padding:20px 0 4px"><img src="'+$('#logoPrev').src+'" alt="" style="max-height:56px;max-width:220px"></div>':'';
+  const body=cuerpo.split('\n').map(l=>'<p style="margin:0 0 10px">'+inlineP(l)+'</p>').join('');
+  box.innerHTML='<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Asunto: <b style="color:var(--text2)">'+escapeP(subj)+'</b></div>'+
+    '<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e3e7ec;font-family:Arial,sans-serif">'+
+    logo+
+    '<div style="background:'+escapeP(color)+';color:#fff;padding:16px 22px;font-size:16px;font-weight:bold">'+escapeP(subj)+'</div>'+
+    '<div style="padding:22px;color:#333;font-size:14px;line-height:1.5">'+body+'</div>'+
+    '<div style="padding:14px 22px;color:#8a98a8;font-size:12px;border-top:1px solid #eee">'+escapeP(firma)+'</div>'+
+    '</div>';
+}
+['#mColor','#mFirma','#sPedido','#tPedido','#sNivel','#tNivel','#sCierre','#tCierre'].forEach(sel=>{const el=$(sel);if(el)el.addEventListener('input',renderMailPreview);});
+if($('#prevSel'))$('#prevSel').addEventListener('change',renderMailPreview);
 $('#cfgBtn').onclick=async()=>{
   const p=$('#cfgPanel');
   const show=p.style.display==='none';
@@ -270,14 +317,15 @@ $('#cfgBtn').onclick=async()=>{
     if(m.tieneLogo){$('#logoPrev').src='/logo.png?t='+Date.now();$('#logoPrev').style.display='inline-block';}
     else{$('#logoPrev').style.display='none';}
   }catch(e){}
+  renderMailPreview();
 };
 $('#mLogo').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const rd=new FileReader();
-  rd.onload=()=>{nuevoLogo=String(rd.result).split(',')[1];$('#logoPrev').src=rd.result;$('#logoPrev').style.display='inline-block';};
+  rd.onload=()=>{nuevoLogo=String(rd.result).split(',')[1];$('#logoPrev').src=rd.result;$('#logoPrev').style.display='inline-block';renderMailPreview();};
   rd.readAsDataURL(f);
 };
-$('#mLogoDel').onclick=()=>{nuevoLogo='';$('#logoPrev').style.display='none';$('#mLogo').value='';};
+$('#mLogoDel').onclick=()=>{nuevoLogo='';$('#logoPrev').style.display='none';$('#mLogo').value='';renderMailPreview();};
 $('#cfgSave').onclick=async()=>{
   const costoUnidad=Number($('#cfgCosto').value);
   const programStart=$('#cfgFecha').value;
