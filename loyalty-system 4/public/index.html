@@ -141,6 +141,25 @@
       </div>
       <div style="margin-bottom:18px"><label class="fld">Firma / pie del email</label><input id="mFirma" type="text" class="cfg-in" placeholder="Cultivamente Mayorista — Programa de fidelización" style="width:100%;max-width:520px"></div>
 
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+        <div><label class="fld">Color de fondo</label><input id="mFondo" type="color" value="#f4f6f8" style="height:40px;width:56px;padding:2px;border:1px solid var(--border);border-radius:9px;background:var(--surface);cursor:pointer"></div>
+        <div><label class="fld">Tamaño del logo: <span id="mLogoSizeVal">56</span> px</label><input id="mLogoSize" type="range" min="30" max="120" value="56" style="width:170px;vertical-align:middle"></div>
+        <div><label class="fld">Tipografía</label>
+          <select id="mFont" class="cfg-in" style="padding:9px 10px">
+            <option value="Arial,sans-serif">Arial (moderna)</option>
+            <option value="Georgia,serif">Georgia (elegante)</option>
+            <option value="'Trebuchet MS',sans-serif">Trebuchet</option>
+            <option value="Verdana,sans-serif">Verdana</option>
+            <option value="'Times New Roman',serif">Times New Roman</option>
+            <option value="system-ui,-apple-system,sans-serif">Del sistema</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px">
+        <div><label class="fld">Botón destacado — texto</label><input id="mBtnTexto" type="text" class="cfg-in" placeholder="(opcional) Ej: Ver mi cuenta" style="width:240px"></div>
+        <div><label class="fld">Botón destacado — enlace</label><input id="mBtnUrl" type="text" class="cfg-in" placeholder="https://cultivamentemayorista.com" style="width:300px"></div>
+      </div>
+
       <div class="mailrow"><b>Mail 1 · Compra registrada</b>
         <input id="sPedido" type="text" class="cfg-in" placeholder="Asunto" style="width:100%;max-width:520px;margin:6px 0">
         <textarea id="tPedido" class="cfg-ta" rows="4" placeholder="Texto del mail (vacío = mensaje por defecto)"></textarea>
@@ -286,19 +305,28 @@ function renderMailPreview(){
   const subj=M.s?M.s.replace(/\{(\w+)\}/g,(m,k)=>k in M.vals?M.vals[k]:m):M.ds;
   const cuerpo=M.t?M.t.replace(/\{(\w+)\}/g,(m,k)=>k in M.vals?M.vals[k]:m):M.dt;
   const color=$('#mColor').value||'#1F3A5F';
+  const fondo=($('#mFondo')&&$('#mFondo').value)||'#f4f6f8';
+  const font=($('#mFont')&&$('#mFont').value)||'Arial,sans-serif';
+  const lh=($('#mLogoSize')&&$('#mLogoSize').value)||56;
   const firma=$('#mFirma').value||(COM+' — Programa de fidelización');
+  const btnT=$('#mBtnTexto')?$('#mBtnTexto').value:'';
+  const btnU=$('#mBtnUrl')?$('#mBtnUrl').value:'';
   const logoShown=$('#logoPrev')&&$('#logoPrev').style.display!=='none';
-  const logo=logoShown?'<div style="text-align:center;padding:20px 0 4px"><img src="'+$('#logoPrev').src+'" alt="" style="max-height:56px;max-width:220px"></div>':'';
+  const logo=logoShown?'<div style="text-align:center;padding:20px 0 4px"><img src="'+$('#logoPrev').src+'" alt="" style="max-height:'+lh+'px;max-width:80%"></div>':'';
+  const boton=(btnT&&btnU)?'<div style="text-align:center;padding:4px 22px 20px"><a href="#" onclick="return false" style="display:inline-block;background:'+escapeP(color)+';color:#fff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px">'+escapeP(btnT)+'</a></div>':'';
   const body=cuerpo.split('\n').map(l=>'<p style="margin:0 0 10px">'+inlineP(l)+'</p>').join('');
   box.innerHTML='<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Asunto: <b style="color:var(--text2)">'+escapeP(subj)+'</b></div>'+
-    '<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e3e7ec;font-family:Arial,sans-serif">'+
+    '<div style="background:'+escapeP(fondo)+';padding:16px;border-radius:8px;font-family:'+font+'">'+
+    '<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e3e7ec">'+
     logo+
     '<div style="background:'+escapeP(color)+';color:#fff;padding:16px 22px;font-size:16px;font-weight:bold">'+escapeP(subj)+'</div>'+
     '<div style="padding:22px;color:#333;font-size:14px;line-height:1.5">'+body+'</div>'+
+    boton+
     '<div style="padding:14px 22px;color:#8a98a8;font-size:12px;border-top:1px solid #eee">'+escapeP(firma)+'</div>'+
-    '</div>';
+    '</div></div>';
 }
-['#mColor','#mFirma','#sPedido','#tPedido','#sNivel','#tNivel','#sCierre','#tCierre'].forEach(sel=>{const el=$(sel);if(el)el.addEventListener('input',renderMailPreview);});
+['#mColor','#mFondo','#mFont','#mLogoSize','#mFirma','#mBtnTexto','#mBtnUrl','#sPedido','#tPedido','#sNivel','#tNivel','#sCierre','#tCierre'].forEach(sel=>{const el=$(sel);if(el)el.addEventListener('input',renderMailPreview);});
+if($('#mLogoSize'))$('#mLogoSize').addEventListener('input',()=>{$('#mLogoSizeVal').textContent=$('#mLogoSize').value;});
 if($('#prevSel'))$('#prevSel').addEventListener('change',renderMailPreview);
 $('#cfgBtn').onclick=async()=>{
   const p=$('#cfgPanel');
@@ -314,6 +342,10 @@ $('#cfgBtn').onclick=async()=>{
     $('#sPedido').value=m.subjPedido||'';$('#tPedido').value=m.textoPedido||'';
     $('#sNivel').value=m.subjNivel||'';$('#tNivel').value=m.textoNivel||'';
     $('#sCierre').value=m.subjCierre||'';$('#tCierre').value=m.textoCierre||'';
+    $('#mFondo').value=m.mailFondo||'#f4f6f8';
+    if(m.mailFont)$('#mFont').value=m.mailFont;
+    $('#mLogoSize').value=m.mailLogoSize||56;$('#mLogoSizeVal').textContent=$('#mLogoSize').value;
+    $('#mBtnTexto').value=m.mailBtnTexto||'';$('#mBtnUrl').value=m.mailBtnUrl||'';
     if(m.tieneLogo){$('#logoPrev').src='/logo.png?t='+Date.now();$('#logoPrev').style.display='inline-block';}
     else{$('#logoPrev').style.display='none';}
   }catch(e){}
@@ -336,6 +368,8 @@ $('#cfgSave').onclick=async()=>{
   try{
     const body={costoUnidad,programStart,
       mailRemitente:$('#mRem').value,mailFirma:$('#mFirma').value,mailColor:$('#mColor').value,
+      mailFondo:$('#mFondo').value,mailFont:$('#mFont').value,mailLogoSize:$('#mLogoSize').value,
+      mailBtnTexto:$('#mBtnTexto').value,mailBtnUrl:$('#mBtnUrl').value,
       subjPedido:$('#sPedido').value,textoPedido:$('#tPedido').value,
       subjNivel:$('#sNivel').value,textoNivel:$('#tNivel').value,
       subjCierre:$('#sCierre').value,textoCierre:$('#tCierre').value};
