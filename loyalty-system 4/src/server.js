@@ -130,7 +130,7 @@ app.post('/admin/cerrar-trimestre', express.json(), async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- Admin: guardar configuración (costo/fecha de inicio, editable desde el panel) ---
+// --- Admin: guardar el costo por unidad (editable desde el panel, protegido) ---
 app.post('/admin/config', express.json(), (req, res) => {
   if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
     return res.status(401).json({ error: 'no autorizado' });
@@ -151,7 +151,40 @@ app.post('/admin/config', express.json(), (req, res) => {
     setSetting('programStart', d);
     out.programStart = d;
   }
+  // Personalización de los emails (asunto/texto/marca).
+  ['mailRemitente', 'mailFirma', 'mailColor', 'subjPedido', 'textoPedido',
+   'subjNivel', 'textoNivel', 'subjCierre', 'textoCierre'].forEach((k) => {
+    if (body[k] !== undefined) { setSetting(k, String(body[k])); out[k] = true; }
+  });
   res.json({ ok: true, ...out });
+});
+
+// --- Config de emails para el panel (lectura, sin secreto) ---
+app.get('/api/mails', (req, res) => {
+  const keys = ['mailRemitente', 'mailFirma', 'mailColor', 'subjPedido', 'textoPedido',
+    'subjNivel', 'textoNivel', 'subjCierre', 'textoCierre'];
+  const out = {};
+  keys.forEach((k) => { out[k] = getSetting(k, ''); });
+  out.tieneLogo = !!getSetting('mailLogo', '');
+  res.json(out);
+});
+
+// --- Logo del email: subir (protegido) y servir (público) ---
+app.post('/admin/logo', express.json({ limit: '4mb' }), (req, res) => {
+  if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
+    return res.status(401).json({ error: 'no autorizado' });
+  }
+  const b64 = (req.body && req.body.logo) || '';
+  if (b64 && b64.length > 2500000) return res.status(400).json({ error: 'logo demasiado grande (máx ~1.8 MB)' });
+  setSetting('mailLogo', b64);
+  res.json({ ok: true, tieneLogo: !!b64 });
+});
+app.get('/logo.png', (req, res) => {
+  const b64 = getSetting('mailLogo', '');
+  if (!b64) return res.status(404).send('sin logo');
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'no-cache');
+  res.send(Buffer.from(b64, 'base64'));
 });
 
 app.get('/salud', (req, res) => res.json({ ok: true, trimestre: L.claveTrimestre(new Date()) }));
