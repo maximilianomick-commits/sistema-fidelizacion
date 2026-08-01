@@ -151,8 +151,9 @@ app.post('/admin/config', express.json(), (req, res) => {
     setSetting('programStart', d);
     out.programStart = d;
   }
-  // Personalización de los emails (asunto/texto/marca).
-  ['mailRemitente', 'mailFirma', 'mailColor', 'subjPedido', 'textoPedido',
+  // Personalización de los emails (asunto/texto/marca/diseño).
+  ['mailRemitente', 'mailFirma', 'mailColor', 'mailFondo', 'mailFont', 'mailLogoSize',
+   'mailBtnTexto', 'mailBtnUrl', 'subjPedido', 'textoPedido',
    'subjNivel', 'textoNivel', 'subjCierre', 'textoCierre'].forEach((k) => {
     if (body[k] !== undefined) { setSetting(k, String(body[k])); out[k] = true; }
   });
@@ -161,7 +162,8 @@ app.post('/admin/config', express.json(), (req, res) => {
 
 // --- Config de emails para el panel (lectura, sin secreto) ---
 app.get('/api/mails', (req, res) => {
-  const keys = ['mailRemitente', 'mailFirma', 'mailColor', 'subjPedido', 'textoPedido',
+  const keys = ['mailRemitente', 'mailFirma', 'mailColor', 'mailFondo', 'mailFont', 'mailLogoSize',
+    'mailBtnTexto', 'mailBtnUrl', 'subjPedido', 'textoPedido',
     'subjNivel', 'textoNivel', 'subjCierre', 'textoCierre'];
   const out = {};
   keys.forEach((k) => { out[k] = getSetting(k, ''); });
