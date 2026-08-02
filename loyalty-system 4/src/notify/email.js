@@ -61,12 +61,12 @@ a[x-apple-data-detectors], #MessageViewBody a { color:inherit!important; text-de
        <table cellpadding="0" cellspacing="0" align="center" class="es-header" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;width:100%;table-layout:fixed !important;background-color:transparent;background-repeat:repeat;background-position:center top">
         <tbody>
          <tr>
-          <td align="center" bgcolor="#cfe2f3" style="padding:0;Margin:0;background-color:#cfe2f3;background:linear-gradient(0deg, #CFE2F3 0%, #3758EAF2 93%)">
+          <td align="center" bgcolor="#6fa8dc" style="padding:0;Margin:0;background-color:#6fa8dc;background:linear-gradient(319deg, #6FA8DC 37%, #FFFFFF 82%)">
            <table bgcolor="#ffffff" align="center" cellpadding="0" cellspacing="0" class="es-header-body" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px">
             <tbody>
              <tr>
-              <td align="center" style="Margin:0;padding:20px 20px 10px">
-               <img src="https://ezsbqcq.stripocdn.email/content/guids/CABINET_56af3d9178378a09742e32226157e0c06face232aea302708116b4285359e4cf/images/isologipo_horizontal_blanco.png" alt="Cultivamente Mayorista" width="284" title="Cultivamente Mayorista" class="adapt-img" style="display:block;font-size:12px;border:0;outline:none;text-decoration:none;margin:0 auto">
+              <td align="center" style="Margin:0;padding:6px 20px">
+               <img src="https://ezsbqcq.stripocdn.email/content/guids/CABINET_df856c13c5cc402b947a1f8fe67294708fe35a975d0489abd3fbb456ab8c424a/images/isologipo_horizontal_negro.png" alt="Cultivamente Mayorista" width="250" title="Cultivamente Mayorista" class="adapt-img" style="display:block;font-size:12px;border:0;outline:none;text-decoration:none;margin:0 auto">
               </td>
              </tr>
             </tbody>
