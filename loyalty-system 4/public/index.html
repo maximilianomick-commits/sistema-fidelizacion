@@ -67,13 +67,17 @@
   .dist .d .c{font-size:19px;font-weight:700}
   .empty{padding:40px;text-align:center;color:var(--muted)}
   footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center}
-  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}.inf-grid{grid-template-columns:1fr!important}}
   .cfg-in{font-family:inherit;font-size:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:9px 12px;border-radius:9px}
   .cfg-ta{font-family:inherit;font-size:13px;line-height:1.5;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:10px 12px;border-radius:9px;width:100%;max-width:640px;resize:vertical;display:block}
   .mailrow{margin:0 0 16px}
   .mailrow b{font-size:13px;color:var(--navy-2)}
   code{background:var(--surface-2);padding:1px 5px;border-radius:5px;font-size:12px}
+  .inf-item:hover{background:var(--surface-2)}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 <header class="top">
@@ -84,6 +88,7 @@
     </div>
     <div class="top-actions">
       <select id="qsel" title="Trimestre"></select>
+      <button class="btn-ghost" id="infBtn">📋 Informes</button>
       <button class="btn-ghost" id="cfgBtn">⚙ Configuración</button>
       <button class="btn-ghost" id="themeBtn">◐ Tema</button>
       <button class="btn-ghost" id="refreshBtn">↻ Actualizar</button>
@@ -211,6 +216,33 @@
       <div class="card section" style="padding:14px 16px">
         <h2><span class="dot"></span>Distribución por nivel</h2>
         <div class="dist" id="dist"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card section" id="infPanel" style="display:none;padding:16px 18px">
+    <h2><span class="dot"></span>Clientes e informes</h2>
+    <p style="font-size:12.5px;color:var(--text2);margin:0 0 12px;max-width:780px">
+      Buscá un cliente para ver todo su detalle: compras, unidades y nivel por trimestre, premios y regalos. Descargá su informe en <b>Excel</b> o <b>PDF</b>. Abajo podés bajar un respaldo general de toda la información.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input id="infSearch" type="text" class="cfg-in" placeholder="Buscar por nombre, email o teléfono" style="width:340px;max-width:100%">
+      <span id="infCount" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="inf-grid" style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
+      <div class="card" style="max-height:440px;overflow:auto;padding:6px"><div id="infList"><div class="empty">Cargando…</div></div></div>
+      <div id="infDetail"><div class="empty">Elegí un cliente de la lista.</div></div>
+    </div>
+    <div style="margin-top:22px;border-top:1px dashed var(--border);padding-top:16px">
+      <h2 style="margin:0 0 8px"><span class="dot"></span>Respaldo general</h2>
+      <p style="font-size:12.5px;color:var(--text2);margin:0 0 12px;max-width:780px">
+        Copia de seguridad de <b>toda</b> la información. El <b>.sqlite</b> es el respaldo completo y restaurable; el <b>Excel</b> es una copia legible (clientes y pedidos). Necesitás tu clave de administrador.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div><label class="fld">Clave de administrador</label><input id="infToken" type="password" placeholder="tu ADMIN_TOKEN" class="cfg-in" style="width:230px"></div>
+        <button id="bkSqlite" style="background:var(--navy);color:#fff;border-color:var(--navy)">⬇ Respaldo .sqlite</button>
+        <button id="bkExcel">⬇ Respaldo Excel</button>
+        <span id="bkMsg" style="font-size:12.5px;font-weight:600"></span>
       </div>
     </div>
   </div>
@@ -386,6 +418,147 @@ $('#cfgSave').onclick=async()=>{
     await cargar(currentQ);
   }catch(e){msg.style.color='#c0392b';msg.textContent='✗ '+e.message;}
 };
+
+// ---- Clientes e informes ----
+let CLIENTES=[];
+function fechaHoy(){return new Date().toISOString().slice(0,10);}
+function slug(s){return (String(s||'cliente').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40))||'cliente';}
+function descargarBlob(blob,fn){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},1500);}
+function tokenInf(){return ($('#infToken').value||'').trim();}
+
+$('#infBtn').onclick=async()=>{
+  const p=$('#infPanel');const show=p.style.display==='none';p.style.display=show?'block':'none';
+  if(show){ p.scrollIntoView({behavior:'smooth',block:'start'}); if(!CLIENTES.length) await cargarClientes(); }
+};
+async function cargarClientes(){
+  try{ CLIENTES=await fetch('/api/clientes').then(r=>r.json()); renderLista(); }
+  catch(e){ $('#infList').innerHTML='<div class="empty">No se pudo cargar.</div>'; }
+}
+function renderLista(){
+  const q=($('#infSearch').value||'').toLowerCase();
+  const fil=CLIENTES.filter(c=>!q||[c.name,c.email,c.phone,c.customer_key].some(x=>String(x||'').toLowerCase().includes(q)));
+  $('#infCount').textContent=fil.length+' cliente'+(fil.length===1?'':'s');
+  $('#infList').innerHTML=fil.length?fil.map(c=>
+    `<div class="rk-row inf-item" data-k="${esc(c.customer_key)}" style="grid-template-columns:1fr auto;cursor:pointer">
+      <div class="rk-name" title="${esc(c.name||c.customer_key)}">${esc(c.name||c.customer_key)}<div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis">${esc(c.email||c.customer_key)}</div></div>
+      <div class="rk-val">${fmt(c.unidades)} u.</div></div>`).join(''):'<div class="empty">Sin resultados.</div>';
+  document.querySelectorAll('.inf-item').forEach(el=>el.onclick=()=>verCliente(el.dataset.k));
+}
+if($('#infSearch'))$('#infSearch').addEventListener('input',renderLista);
+
+async function verCliente(key){
+  const box=$('#infDetail'); box.innerHTML='<div class="empty">Cargando…</div>';
+  try{
+    const d=await fetch('/api/cliente?key='+encodeURIComponent(key)).then(r=>r.json());
+    if(d.error)throw new Error(d.error);
+    const id=d.identidad;
+    const trim=d.trimestres.map(t=>`<tr><td>${esc(t.nombreTrimestre)}</td><td class="num">${fmt(t.unidades)}</td>
+      <td>${t.nivel?`<span class="tier ${tierCls(t.nivel)}">${t.nivel}</span>`:'<span class="tier t-base">Sin nivel</span>'}</td>
+      <td class="num gift">${t.premio?('+'+fmt(t.premio)):'—'}</td><td class="num">${t.regalo?fmt(t.regalo):'—'}</td>
+      <td>${t.cerrado?'Sí':'No'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Sin trimestres.</td></tr>';
+    const ped=d.pedidos.map(p=>`<tr><td>${esc((p.fecha||'').slice(0,10))}</td><td>${esc(p.order_id)}</td><td>${esc(p.quarter)}</td>
+      <td class="num">${fmt(p.unidades)}</td><td>${esc(p.estado||'')}</td><td class="num">${esc(d.moneda)} ${fmt(p.importeEstimado)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Sin compras.</td></tr>';
+    box.innerHTML=`
+      <div class="card" style="padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
+          <div><div style="font-size:16px;font-weight:700">${esc(id.name)}</div>
+            <div style="font-size:12.5px;color:var(--text2)">${esc(id.email||'')} ${id.phone?('· '+esc(id.phone)):''}</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="dlExcel" style="background:var(--navy);color:#fff;border-color:var(--navy)">⬇ Informe Excel</button>
+            <button id="dlPDF">⬇ Informe PDF</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:12px">
+          <div><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Unidades totales</div><div style="font-size:21px;font-weight:700">${fmt(d.totales.unidades)}</div></div>
+          <div><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Compras</div><div style="font-size:21px;font-weight:700">${fmt(d.totales.pedidos)}</div></div>
+          <div><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Regalo (u.)</div><div style="font-size:21px;font-weight:700;color:var(--good)">${fmt(d.totales.regalos)}</div></div>
+        </div>
+      </div>
+      <div class="card" style="padding:8px 6px;margin-top:12px;overflow-x:auto">
+        <div style="font-size:12px;font-weight:700;color:var(--navy-2);padding:6px 10px">Por trimestre</div>
+        <table><thead><tr><th>Trimestre</th><th class="num">Unidades</th><th>Nivel</th><th class="num">Premio (u.)</th><th class="num">Regalo (u.)</th><th>Cerrado</th></tr></thead><tbody>${trim}</tbody></table>
+      </div>
+      <div class="card" style="padding:8px 6px;margin-top:12px;overflow-x:auto">
+        <div style="font-size:12px;font-weight:700;color:var(--navy-2);padding:6px 10px">Compras (${fmt(d.pedidos.length)})</div>
+        <table><thead><tr><th>Fecha</th><th>N° pedido</th><th>Trim.</th><th class="num">Unidades</th><th>Estado</th><th class="num">Importe est.</th></tr></thead><tbody>${ped}</tbody></table>
+        <div style="font-size:11px;color:var(--muted);padding:6px 10px">Importe estimado = unidades × costo por unidad (estimación; el monto exacto de cada pedido no se guarda hoy).</div>
+      </div>`;
+    $('#dlExcel').onclick=()=>informeExcel(d);
+    $('#dlPDF').onclick=()=>informePDF(d);
+  }catch(e){box.innerHTML='<div class="empty">Error: '+esc(e.message)+'</div>';}
+}
+
+function informeExcel(d){
+  if(typeof XLSX==='undefined'){alert('No se pudo cargar el generador de Excel. Reintentá en unos segundos.');return;}
+  const id=d.identidad;
+  const wb=XLSX.utils.book_new();
+  const resumen=[
+    ['Informe de cliente',d.comercio],['',''],
+    ['Cliente',id.name],['Email',id.email||''],['Teléfono',id.phone||''],
+    ['Identificador',id.customer_key],['Alta',id.joined_at||''],['',''],
+    ['Unidades totales',d.totales.unidades],['Compras totales',d.totales.pedidos],
+    ['Unidades de regalo',d.totales.regalos],['Generado',d.generado],
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(resumen),'Resumen');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d.trimestres.map(t=>({
+    Trimestre:t.nombreTrimestre,Clave:t.quarter,Unidades:t.unidades,Nivel:t.nivel||'Sin nivel',
+    'Premio (u.)':t.premio,'Regalo (u.)':t.regalo,Cerrado:t.cerrado?'Sí':'No'}))),'Trimestres');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d.pedidos.map(p=>({
+    Fecha:(p.fecha||'').slice(0,19).replace('T',' '),'N° pedido':p.order_id,Trimestre:p.quarter,
+    Unidades:p.unidades,Estado:p.estado,'Importe estimado':p.importeEstimado}))),'Compras');
+  XLSX.writeFile(wb,'informe-'+slug(id.name)+'-'+fechaHoy()+'.xlsx');
+}
+
+function informePDF(d){
+  const J=window.jspdf&&window.jspdf.jsPDF; if(!J){alert('No se pudo cargar el generador de PDF. Reintentá en unos segundos.');return;}
+  const id=d.identidad; const doc=new J();
+  doc.setFontSize(15);doc.setTextColor(31,58,95);doc.text('Informe de cliente — '+d.comercio,14,18);
+  doc.setFontSize(10);doc.setTextColor(80);
+  let y=27;
+  doc.text('Cliente: '+id.name,14,y);y+=5.5;
+  if(id.email){doc.text('Email: '+id.email,14,y);y+=5.5;}
+  if(id.phone){doc.text('Teléfono: '+id.phone,14,y);y+=5.5;}
+  doc.text('Unidades totales: '+d.totales.unidades+'   ·   Compras: '+d.totales.pedidos+'   ·   Regalo: '+d.totales.regalos+' u.',14,y);y+=3;
+  doc.autoTable({startY:y+4,head:[['Trimestre','Unidades','Nivel','Premio (u.)','Regalo (u.)','Cerrado']],
+    body:d.trimestres.map(t=>[t.nombreTrimestre,t.unidades,t.nivel||'Sin nivel',t.premio,t.regalo,t.cerrado?'Sí':'No']),
+    styles:{fontSize:9},headStyles:{fillColor:[31,58,95]}});
+  doc.autoTable({startY:doc.lastAutoTable.finalY+8,head:[['Fecha','N° pedido','Trim.','Unidades','Estado','Importe est.']],
+    body:d.pedidos.map(p=>[(p.fecha||'').slice(0,10),p.order_id,p.quarter,p.unidades,p.estado,d.moneda+' '+p.importeEstimado]),
+    styles:{fontSize:8},headStyles:{fillColor:[31,58,95]}});
+  doc.setFontSize(8);doc.setTextColor(150);
+  doc.text('Importe estimado = unidades × costo por unidad. Generado '+d.generado.slice(0,19).replace('T',' '),14,doc.lastAutoTable.finalY+8);
+  doc.save('informe-'+slug(id.name)+'-'+fechaHoy()+'.pdf');
+}
+
+async function bkSqlite(){
+  const tok=tokenInf();const msg=$('#bkMsg');
+  if(!tok){msg.style.color='#c0392b';msg.textContent='Poné tu clave de administrador';return;}
+  msg.style.color='var(--text2)';msg.textContent='Generando respaldo…';
+  try{
+    const r=await fetch('/admin/backup.sqlite',{headers:{'x-admin-token':tok}});
+    if(!r.ok){let m='error '+r.status;try{m=(await r.json()).error||m;}catch(e){}throw new Error(m);}
+    descargarBlob(await r.blob(),'respaldo-fidelizacion-'+fechaHoy()+'.sqlite');
+    msg.style.color='var(--good)';msg.textContent='✓ Descargado';
+  }catch(e){msg.style.color='#c0392b';msg.textContent='✗ '+e.message;}
+}
+async function bkExcel(){
+  const tok=tokenInf();const msg=$('#bkMsg');
+  if(!tok){msg.style.color='#c0392b';msg.textContent='Poné tu clave de administrador';return;}
+  if(typeof XLSX==='undefined'){msg.style.color='#c0392b';msg.textContent='Generador de Excel no disponible';return;}
+  msg.style.color='var(--text2)';msg.textContent='Generando Excel…';
+  try{
+    const r=await fetch('/admin/export-data',{headers:{'x-admin-token':tok}});
+    if(!r.ok){let m='error '+r.status;try{m=(await r.json()).error||m;}catch(e){}throw new Error(m);}
+    const d=await r.json();
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d.clientes||[]),'Clientes');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d.pedidos||[]),'Pedidos');
+    XLSX.writeFile(wb,'respaldo-fidelizacion-'+fechaHoy()+'.xlsx');
+    msg.style.color='var(--good)';msg.textContent='✓ Descargado';
+  }catch(e){msg.style.color='#c0392b';msg.textContent='✗ '+e.message;}
+}
+if($('#bkSqlite'))$('#bkSqlite').onclick=bkSqlite;
+if($('#bkExcel'))$('#bkExcel').onclick=bkExcel;
 
 // Reloj "actualizado hace Xs"
 setInterval(()=>{ if(lastFetch){const s=Math.round((Date.now()-lastFetch)/1000);
