@@ -1,5 +1,7 @@
 'use strict';
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const express = require('express');
 const cfg = require('./config');
 const L = require('./loyalty');
@@ -118,6 +120,84 @@ app.get('/api/trimestres', (req, res) => {
   res.json(rows.map(r => r.quarter));
 });
 
+// --- Clientes: lista agregada (todos los trimestres) para el buscador del panel ---
+app.get('/api/clientes', (req, res) => {
+  const rows = dbmod.db.prepare(`
+    SELECT customer_key,
+      MAX(name) AS name, MAX(email) AS email, MAX(phone) AS phone,
+      SUM(units) AS unidades, COUNT(DISTINCT quarter) AS trimestres,
+      SUM(gift) AS regalos, MAX(updated_at) AS actualizado
+    FROM customers GROUP BY customer_key ORDER BY unidades DESC`).all();
+  res.json(rows);
+});
+
+// --- Detalle completo de un cliente (identidad + trimestres + pedidos) ---
+app.get('/api/cliente', (req, res) => {
+  const key = req.query.key;
+  if (!key) return res.status(400).json({ error: 'falta ?key=' });
+  const filas = dbmod.db.prepare('SELECT * FROM customers WHERE customer_key = ? ORDER BY quarter DESC').all(key);
+  if (!filas.length) return res.status(404).json({ error: 'cliente no encontrado' });
+  const identidad = {
+    customer_key: key,
+    name: (filas.find(f => f.name) || {}).name || key,
+    email: (filas.find(f => f.email) || {}).email || null,
+    phone: (filas.find(f => f.phone) || {}).phone || null,
+    joined_at: filas.map(f => f.joined_at).filter(Boolean).sort()[0] || null,
+  };
+  const trimestres = filas.map((c) => {
+    const idx = L.indiceNivel(c.units);
+    const nivel = idx >= 0 ? cfg.niveles[idx] : null;
+    const prog = L.progreso(c.units);
+    return {
+      quarter: c.quarter, nombreTrimestre: L.nombreTrimestre(c.quarter),
+      unidades: c.units, nivel: nivel ? nivel.nombre : null, premio: nivel ? nivel.premio : 0,
+      regalo: c.gift, cerrado: !!c.closed,
+      faltan: prog ? prog.faltan : 0, objetivo: prog ? prog.objetivo : null,
+      actualizado: c.updated_at,
+    };
+  });
+  const costo = costoUnidadActual();
+  const pedidos = dbmod.db.prepare('SELECT order_id, quarter, units, status, updated_at FROM orders WHERE customer_key = ? ORDER BY updated_at DESC').all(key)
+    .map(o => ({
+      order_id: o.order_id, quarter: o.quarter, unidades: o.units, estado: o.status,
+      fecha: o.updated_at, importeEstimado: Math.round((o.units || 0) * costo),
+    }));
+  res.json({
+    identidad, comercio: cfg.comercio, moneda: cfg.moneda, costoUnidad: costo,
+    trimestres, pedidos,
+    totales: {
+      unidades: filas.reduce((s, c) => s + c.units, 0),
+      pedidos: pedidos.length,
+      regalos: filas.reduce((s, c) => s + (c.gift || 0), 0),
+    },
+    generado: new Date().toISOString(),
+  });
+});
+
+// --- Respaldo: todos los datos como JSON (para armar el Excel en el panel, protegido) ---
+app.get('/admin/export-data', (req, res) => {
+  if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
+    return res.status(401).json({ error: 'no autorizado' });
+  }
+  const clientes = dbmod.db.prepare('SELECT * FROM customers ORDER BY quarter DESC, units DESC').all();
+  const pedidos = dbmod.db.prepare('SELECT * FROM orders ORDER BY updated_at DESC').all();
+  res.json({ clientes, pedidos, generado: new Date().toISOString() });
+});
+
+// --- Respaldo: copia completa de la base SQLite (protegido) ---
+app.get('/admin/backup.sqlite', (req, res) => {
+  if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
+    return res.status(401).json({ error: 'no autorizado' });
+  }
+  const tmp = path.join(os.tmpdir(), 'respaldo-' + Date.now() + '.sqlite');
+  try {
+    dbmod.db.exec("VACUUM INTO '" + tmp.replace(/'/g, "''") + "'");
+    res.download(tmp, 'respaldo-fidelizacion.sqlite', () => { try { fs.unlinkSync(tmp); } catch {} });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // --- Admin: cerrar trimestre manualmente (protegido por token) ---
 app.post('/admin/cerrar-trimestre', express.json(), async (req, res) => {
   if (cfg.adminToken && req.get('x-admin-token') !== cfg.adminToken) {
@@ -151,7 +231,7 @@ app.post('/admin/config', express.json(), (req, res) => {
     setSetting('programStart', d);
     out.programStart = d;
   }
-  // Personalización de los emails (asunto/texto/marca/diseño).
+  // Personalización de los emails (asunto/texto/marca).
   ['mailRemitente', 'mailFirma', 'mailColor', 'mailFondo', 'mailFont', 'mailLogoSize',
    'mailBtnTexto', 'mailBtnUrl', 'subjPedido', 'textoPedido',
    'subjNivel', 'textoNivel', 'subjCierre', 'textoCierre'].forEach((k) => {
