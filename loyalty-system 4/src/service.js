@@ -57,8 +57,11 @@ async function procesarPedido(orderRaw) {
     await avisar(contacto, msgs.subioNivel({ name: o.name, nivel: nivelDespues, progreso }));
     dbmod.setNotifiedLevel(o.customerKey, quarter, idxDespues);
     avisoEnviado = 'subida-nivel';
-  } else if (r.isNewOrder && r.delta > 0 && cfg.avisos.pedido) {
-    // Pedido nuevo sin cambio de nivel → confirmación con progreso.
+  } else if (r.delta > 0 && cfg.avisos.pedido) {
+    // Se sumaron unidades (p. ej. el pedido pasó de un estado neutro a
+    // "procesando") sin cambio de nivel → confirmación con progreso. No exige que
+    // sea un pedido nuevo, porque el pedido suele verse primero en un estado que
+    // no suma (0 unidades) y recién acredita al pasar a "procesando".
     await avisar(contacto, msgs.pedidoConfirmado({
       name: o.name, unitsAfter: r.unitsAfter, added: r.delta, nivel: nivelDespues, progreso,
     }));
