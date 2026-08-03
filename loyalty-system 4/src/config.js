@@ -24,6 +24,12 @@ const cfg = {
   programStart: process.env.PROGRAM_START || '2026-07-01',
 
   // Estados de WooCommerce que consideramos "venta concretada" y suman unidades.
+  // Suma y dispara el mail al pasar a "processing" (Procesando), que es cuando
+  // ustedes CONFIRMAN el pedido (cerca de la fecha de carga). "completed"
+  // (Completado = despacho) también está en la lista para que, al despachar, NO
+  // se resten las unidades ya acreditadas. Para que no se dispare al cargar el
+  // pedido, el pedido manual debe ENTRAR en un estado neutro (on-hold/pending),
+  // no directamente en "processing".
   estadosValidos: (process.env.WC_ESTADOS_VALIDOS || 'processing,completed')
     .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
 
